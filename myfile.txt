@@ -1,1 +1,2 @@
-Error: Command '['python', 'C:\\Users\\sudip\\Desktop\\GFG\\gfg_potd.py']' returned non-zero exit status 1.
+last execution date of the potd file will be saved here 
+this file will be created everytime if not present .
