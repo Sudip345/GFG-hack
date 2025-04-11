@@ -19,7 +19,27 @@ from selenium.webdriver.chrome.service import Service
 from collections import deque
 import time
 import json
+import winsound
+import requests
 
+
+def make_beep():
+    winsound.Beep(600,1000)
+    winsound.Beep(400,1000)
+    winsound.Beep(350,1000)
+
+
+def is_online(url):
+    try:
+        requests.get(url, timeout=5)
+        return True
+    except (requests.ConnectionError, requests.Timeout):
+        return False
+
+
+
+class problem_not_solved_exception(Exception):
+    pass
 
 def handle_submission_error(driver):
     while True:
@@ -121,79 +141,60 @@ def select_language(driver,lan = 2):
             return str
 
 
-def submisson(driver,attempt,submit=1):
+def submisson(driver):
         t1 = threading.Thread(target=handle_submission_error,args=(driver,),daemon= True)
         t1.start()
         submit = WebDriverWait(driver,10).until(
         EC.element_to_be_clickable((By.CSS_SELECTOR,".ui.button.problems_submit_button__6QoNQ"))
         )
-        submit.click()
+        driver.execute_script("""arguments[0].scrollIntoView(true);
+                                 arguments[0].click()""",submit )
         
         try:
-            solved = WebDriverWait(driver,15).until(
+            solved = WebDriverWait(driver,20).until(
             EC.presence_of_element_located((By.CLASS_NAME,"problems_problem_solved_successfully__Zb4yG"))
             )
-            time.sleep(2)
-            driver.close()
-            # Switch back to the previous tab (which is now the last one)
-            time.sleep(1)
-            driver.switch_to.window(driver.window_handles[-1])
+            return True
         except Exception:
-            # print("Problem not solved")
-            
-            submit=0
-            time.sleep(1)
-            if attempt >1:
-                driver.close()
-                time.sleep(1)
-                driver.switch_to.window(driver.window_handles[-1])
-            return submit
-        finally :
-            return submit
-            
-
-def get_response (driver,question , code_snippet , cir_queue,submit=1,lan=None):
-    your_api_key = cir_queue[0]
-    attempt =1
-    message=""
-    try :
-        client = OpenAI(
-        base_url="https://api.aimlapi.com/v1",
-        api_key=your_api_key,  
-        )
-
-        if submit==1:
-            response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are an AI assistant who knows everything.",
-                },
-                {
-                    "role": "user",
-                    "content": f"""response back the answer only , not anything rather than the solution (in {lan}) no need to include any header file also , 
-                    just complete the code snippet , write the code like you are directly writing into the editor , no need to add any special character or mention language name "
-                    always write the solution in Solution Class  , if selected language supports OOPS concept.
-                    follow these strictly.
-                    problem statement : {question}
-                    code snippet : {code_snippet}"""
-                },
-            ],
-            )
-            message = response.choices[0].message.content+"\n"
-            error_list=["```",f"java\n",f"cpp\n",f"python\n",f"c\n",f"javascript\n"]  # some times AI mentions code languages in response so we need to fix this
-            for items in error_list:
-                    message = message.replace(items,"")
-            clear_editor(message,driver,lan)
-            time.sleep(0.5)
-            submit = submisson(driver,submit)
-            # print(message)
+            print("Not submitted")
+            return False
         
-        while submit==0 and attempt <2:
+
+
+
+def get_response(driver, question, code_snippet, cir_queue, lan=None):
+    submit = None
+    attempt = 0
+    message = ""
+    
+    while attempt < 2:
+        your_api_key = cir_queue[0] 
+        try:
+            client = OpenAI(
+                base_url="https://api.aimlapi.com/v1",
+                api_key=your_api_key,  
+            )
+
+            # Determine if this is initial attempt or retry
+            if attempt == 0:
+                content = f"""response back the answer only, not anything rather than the solution (in {lan}) no need to include any header file also, 
+                just complete the code snippet, write the code like you are directly writing into the editor, no need to add any special character or mention language name"
+                always write the solution in Solution Class, if selected language supports OOPS concept. give the optimum solution as the constraints are high.
+                follow these strictly.
+                problem statement : {question}
+                code snippet : {code_snippet}"""
+            else:
                 error_msg = fetch_error(driver)
-                attempt+=1
-                response = client.chat.completions.create(
+                content = f"""There was a problem with the previous code, write a new one.
+                response back the answer only, not anything rather than the solution (in {lan}). no need to include any header file also, 
+                just complete the code snippet, write the code like you are directly writing into the editor, no need to add any special character or mention language name,
+                always write the solution in "Solution Class" if selected language supports OOPS concept. give the optimum solution as the constraints are high.
+                follow these strictly.
+                previous error : {error_msg}
+                problem statement : {question}
+                code snippet : {code_snippet}"""
+
+            response = client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
                     {
@@ -202,32 +203,34 @@ def get_response (driver,question , code_snippet , cir_queue,submit=1,lan=None):
                     },
                     {
                         "role": "user",
-                        "content": f"""There was a problem with the previous code , write a new one .
-                        response back the answer only , not anything rather than the solution (in {lan}) . no need to include any header file also , 
-                        just complete the code snippet , write the code like you are directly writing into the editor , no need to add any special character or mention language name,
-                        always write the solution in "Solution Class" if selected language supports OOPS concept.
-                        follow these strictly.
-                        previous error : {error_msg}
-                        problem statement : {question}
-                        code snippet : {code_snippet}"""
+                        "content": content
                     },
                 ],
-                )
-                message = response.choices[0].message.content+"\n"
-                error_list=["```",f"java\n",f"cpp\n",f"python\n",f"c\n",f"javascript\n"]  # some times AI mentions code languages in response so we need to fix this
-                for items in error_list:
-                    message = message.replace(items,"")
-                clear_editor(message,driver,lan)
-                time.sleep(0.8)
-                submit = submisson(driver,attempt,submit)
+            )
+            
+            message = response.choices[0].message.content + "\n"
+            error_list = ["```", f"java\n", f"cpp\n", f"python\n", f"c\n", f"javascript\n"]
+            for items in error_list:
+                message = message.replace(items, "")
+            answer = message
+            clear_editor(answer, driver, lan)
 
-    except Exception as ex :
-        print (f"API key {your_api_key} used , switching to new one")
-        cir_queue.append(your_api_key)
-        raise api_change_exception("switching to new api")
+            submit = submisson(driver)
+            if submit:
+                break  
+                
+        except Exception as ex:
+            print(f"API key {your_api_key} failed , switching to new one ")
+            cir_queue.append(your_api_key)  # Rotate to next API key
+            time.sleep(1)  # Add delay before retry
+            driver.close()
+            raise api_change_exception()
+    
+            
+        attempt += 1
 
-
-
+    if not submit:
+        raise problem_not_solved_exception()
 
 
 
@@ -312,7 +315,7 @@ def fetch_content(driver):
     question.replace(' ','')
     return question
 
-def handle_problem(driver,problem,cir_queue):
+def handle_problem(driver, problem, cir_queue):
     problem.click()
     time.sleep(2)
     window_handles = driver.window_handles 
@@ -322,7 +325,15 @@ def handle_problem(driver,problem,cir_queue):
     question = fetch_content(driver)
     code_snip = fetch_code_snip(driver)
     
-    get_response(driver,question,code_snip,cir_queue,lan=selected_lan)
+    try:
+        get_response(driver, question, code_snip, cir_queue, lan=selected_lan)
+    except problem_not_solved_exception:
+        print("Problem could not be solved after multiple attempts")
+        driver.close()
+        driver.switch_to.window(window_handles[0])  # Switch back to main window
+        time.sleep(2)
+        return False
+    return True
 
 
 
@@ -362,94 +373,147 @@ def log_in_first(driver,uname,password_):
 
 
 if __name__ == "__main__":
-        
-        
-        api_list = [] #**********Enter Your API Keys here****************
-        cir_queue = deque(api_list,maxlen=len(api_list))
+    
+    url =  "https://www.geeksforgeeks.org/explore?page=1&sortBy=submissions&ref=home-articlecards"
+    
+    if not is_online(url):
+        print("you are offline , exiting....")
+        make_beep()
+        exit(1)
 
-        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
-        driver.maximize_window()
-        url =  "https://www.geeksforgeeks.org/explore?page=1&sortBy=submissions&ref=home-articlecards" # fixed url 
-        driver.get(url)
+    api_list = ["6355687b7910438a8c96955310781383",
+                "8d70b74aa51b40d28968cfcc42f1ca46",] #**********Enter Your API Keys here****************
+    cir_queue = deque(api_list,maxlen=len(api_list))
 
-        uname = ""  # ***************user name and password ***************
-        password  = "" # *************your password**************
+    driver = webdriver.Chrome()
+    driver.maximize_window()
+    driver.get(url)
 
-        log_in_first(driver,uname,password) 
+    uname = "sudipbag265@gmail.com"  # ***************user name and password ***************
+    password  = "Sudip@123" # *************your password**************
 
-                                                        # **********difficult_dict = {0:"Basic",1:"Easy",2:"Medium",3:"Hard"}*********
-                                                        # **********status_dict ={0:"Solved",1:"Unsolved",2:"Attempted"}*************  
-        filter_problems(status=[1,2],difficulty=[2,3])   #********* choose difficulty and problem status ************
-        time.sleep(1)
+    log_in_first(driver,uname,password) 
 
-        seen_ids = set()
-        problem_id=""
-        try:
-            cookies = WebDriverWait(driver,15).until(
-            EC.presence_of_element_located((By.CLASS_NAME,"cookieConsent_gfg_cookie__button__y3NOr"))
-            )
-            cookies.click()
-        except Exception:
-            pass
-        
+                                                    # **********difficult_dict = {0:"Basic",1:"Easy",2:"Medium",3:"Hard"}*********
+                                                    # **********status_dict ={0:"Solved",1:"Unsolved",2:"Attempted"}*************  
+    filter_problems(status=[1,2],difficulty=[2,3])   #********* choose difficulty and problem status ************
+    time.sleep(1)
+
+    seen_ids = set()
+    problem_id=""
+    try:
+        cookies = WebDriverWait(driver,15).until(
+        EC.presence_of_element_located((By.CLASS_NAME,"cookieConsent_gfg_cookie__button__y3NOr"))
+        )
+        cookies.click()
+    except Exception:
+        pass
+    
+    # Wait for the initial load of problems
+    try:
         WebDriverWait(driver,15).until(
             EC.visibility_of_element_located((By.CLASS_NAME, "infinite-scroll-component"))
         )
+    except Exception as e:
+        print(f"Error loading initial problems: {e}")
+        driver.quit()
+        exit(1)
 
-        scroll_container = driver.find_element(By.CLASS_NAME, "infinite-scroll-component")
+    scroll_container = driver.find_element(By.CLASS_NAME, "infinite-scroll-component")
 
-
-        while True:
+    while True:
+        try:
+            # Properly wait for problems with a proper timeout and error handling
             try:
-                
-                
                 WebDriverWait(driver, 10).until(
-                        EC.presence_of_all_elements_located((By.CLASS_NAME, "explore_problem__XatX9"))
+                    EC.presence_of_all_elements_located((By.CLASS_NAME, "explore_problem__XatX9"))
                 )
-
-                problems = driver.find_elements(By.CLASS_NAME, "explore_problem__XatX9")
-                new_problem_found = False
-
-                for index in range(len(problems)):
-                    try:
-                            # Re-fetch the problem to avoid stale references
-                        problems = driver.find_elements(By.CLASS_NAME, "explore_problem__XatX9")
-                        problem = problems[index]
-
-                            # Unique identifier
-                        problem_id =  problem.text.strip()
-                        if problem_id in seen_ids:
-                            continue
-                        seen_ids.add(problem_id)
-
-                            # Scroll into view
-                        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", problem)
-                        time.sleep(0.5)
-
-                            # Find the correct button inside the current problem card
-                        button = problem.find_element(By.CSS_SELECTOR, "button.explore_problemSolveBtn__ZF8_I")
-
-                        if "Solved" in button.text.strip():
-                            # print(f"[SKIP] Problem {problem_id} already solved.")
-                            continue
-
-                        handle_problem(driver, problem, cir_queue)
-                        new_problem_found = True
-                        time.sleep(0.5)
-
-                    except Exception as e:
-                        # print(f"[ERROR] Could not solve problem at index {index}: {e}")
-                        pass
-            
-            except KeyboardInterrupt as ex :
-                print("exiting...")
-                exit(0)
             except Exception as e:
-               print("______________________________________________________")
-               driver.close()
-               time.sleep(1)
-               driver.switch_to.window(driver.window_handles[-1])
-               seen_ids.remove(problem_id)
-               time.sleep(2)
-               continue
-        exit(0)
+                print(f"Error waiting for problems: {e}")
+                # Try refreshing the page
+                driver.refresh()
+                time.sleep(5)
+                continue
+
+            problems = driver.find_elements(By.CLASS_NAME, "explore_problem__XatX9")
+            new_problem_found = False
+
+            for index in range(len(problems)):
+                try:
+                    # Re-fetch the problem to avoid stale references
+                    problems = driver.find_elements(By.CLASS_NAME, "explore_problem__XatX9")
+                    problem = problems[index]
+
+                    # Unique identifier
+                    problem_id = problem.text.strip()
+                    if problem_id in seen_ids:
+                        continue
+                    seen_ids.add(problem_id)
+
+                    # Scroll into view
+                    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", problem)
+                    time.sleep(0.5)
+
+                    # Find the correct button inside the current problem card
+                    button = problem.find_element(By.CSS_SELECTOR, "button.explore_problemSolveBtn__ZF8_I")
+
+                    if "Solved" in button.text.strip():
+                        # print(f"[SKIP] Problem {problem_id} already solved.")
+                        continue
+
+                    handle_problem(driver, problem, cir_queue)
+                    new_problem_found = True
+                    time.sleep(0.5)
+
+                except api_change_exception:
+                    print("API key rotation occurred, returning to main window")
+                    
+                    seen_ids.remove(problem_id)
+                   
+                    driver.switch_to.window(driver.window_handles[0])
+                    time.sleep(2)
+                    break
+                    
+                except Exception as e:
+                    # print(f"[ERROR] Could not solve problem at index {index}: {e}")
+                    # Handle any stray windows that might be open
+                    if len(driver.window_handles) > 1:
+                        for handle in driver.window_handles[1:]:
+                            driver.switch_to.window(handle)
+                            driver.close()
+                        driver.switch_to.window(driver.window_handles[0])
+                    time.sleep(2)
+                    continue
+            
+            # Scroll down to load more problems if no new ones were found
+            if not new_problem_found:
+                driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight", scroll_container)
+                time.sleep(2)
+
+        except KeyboardInterrupt:
+            print("Exiting gracefully...")
+            driver.quit()
+            exit(0)
+        except Exception as e:
+            print(f"Unexpected error in main loop: {e}")
+            # Try to recover
+            try:
+                if len(driver.window_handles) > 1:
+                    for handle in driver.window_handles[1:]:
+                        driver.switch_to.window(handle)
+                        driver.close()
+                driver.switch_to.window(driver.window_handles[0])
+                driver.refresh()
+                time.sleep(5)
+            except:
+                # If recovery fails, restart the browser
+                try:
+                    driver.quit()
+                except:
+                    pass
+                driver = webdriver.Chrome()
+                driver.maximize_window()
+                driver.get(url)
+                log_in_first(driver, uname, password)
+                filter_problems(status=[1,2], difficulty=[2,3])
+                time.sleep(5)

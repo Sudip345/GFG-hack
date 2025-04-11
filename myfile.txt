@@ -1,0 +1,1 @@
+Error: Command '['python', 'C:\\Users\\sudip\\Desktop\\GFG\\gfg_potd.py']' returned non-zero exit status 1.
