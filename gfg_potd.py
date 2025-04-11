@@ -1,3 +1,18 @@
+# after solving the potd (problem of the day) it will sent a notification to u through email , you can add any number of mails and only one api key is enough to solve for all accounts 
+# tried my best to optimize this 
+# will make beep sound and exit when offline
+
+# optional if you dont want to run this yourself : just create an vbs eg.
+# Set objShell = CreateObject("WScript.Shell")
+# pythonScriptPath = "path_to\start.py"
+# objShell.Run "python " & chr(34) & pythonScriptPath & chr(34), 0, False
+
+# now press win+R type "shell:startup" and paste the vbs file there
+# now your potd code will run once in a day 
+
+# you may need to on 2 step verifcation in your email for the app password , you can ask chat gpt -" where to find the email app password to send mail " , or simply you can remove the mail option if u want 
+
+
 import threading
 from openai import OpenAI
 from selenium import webdriver
@@ -40,13 +55,13 @@ def is_online(url):
         return False
 
 
-def send_mail(mail_subject,mail_content,receiver="sudipbag035@gmail.com"):
+def send_mail(mail_subject,mail_content,receiver="sudipbag69@gmail.com"):
 
     try:
                 server = smtplib.SMTP('smtp.gmail.com', 587)
                 server.starttls()
-                sender_email = "sudipbag035@gmail.com"
-                app_password = "qeej ktnm mvdq wdag"  # Replace with app password
+                sender_email = "" # sender mail id
+                app_password = ""  # Replace with app password
                 server.login(sender_email, app_password)
                 msg = f"Subject: {mail_subject}\n\n{mail_content}"
                 server.sendmail(sender_email, receiver, msg)
@@ -405,41 +420,12 @@ if __name__ == "__main__":
         make_beep()
         exit(1)
 
-    api_list =     [
-                    "6355687b7910438a8c96955310781383",
-                    "8d70b74aa51b40d28968cfcc42f1ca46",
-                    "d58d055545104a4e93dedc4356635cc2",
-                    "78309b8e9dfd4ad885b5949a8d2159f9",
-                    "7ae73d7f86c94b2a84c6ef39685860ec",
-                    "bb71e041180940b3928460b6a6884ba1",		
-                    "b9611bb1dd7b4e1b972332538a82a009",		
-                    "66bf3db4bd1b485b9102ca2e5b338280",		
-                    "dcfcb8dc2cc049acb2ea815fb45234a7",		
-                    "8e59de218dc64df9a65559cc16968ab9",		
-                    "fef381bb22b7409aa5a3e3b2f0d8f5dc",		
-                    "ff737be46120433fba0e42fd08100e67",	
-                    "dbc78fd1681048599116ba9d88368956",		
-                    "88a9c9d0b30e4d87ad4ccc6a60ac5841",
-                    "acd82ce1888844fa8e0bb5b5fe8b1a7d",
-                    "3895949de5d64c54aaaa6dbf23638601",
-                    "787ee0f32a4d4467be0b78dc0455bb4b",
-                    "6caf4e03e82b4e2cb59024dda80983cd",
-                    "708b34fa11f844e7bb75428722a51e3b",
-                    "7979ab47a681408dba5f3eedf552766f",
-                    "c99d4f2a97cc478aa42b0f98cefe2a16",
-                    "220ca7d1769d4ff7b695f6eb6b1f4eae",
-                    "90c66b0f029e4eb0948ae90cb9bd9e4d",
-                    "0453c2a2807144bbaafe4434fe8c43a5",
-                    "39af475ee06f43d78a3987b6d227d471",
-                    "954f1256ab5d46739ad93b9ad06640c8"
-                    ]
+    api_list =     []
 
     cir_queue = deque(api_list,maxlen=len(api_list))
   
 
-    accounts = { "sudipbag157@gmail.com":"Sudip@123",
-                 "sudipbag035@gmail.com":'Sudip@123',
-                 "araj82537@gmail.com":'Alok@123'}
+    accounts = { "example@gmail.com":"example_password"}   # add any number of accounts here
     
     account_queue = deque(accounts,maxlen=len(accounts))
 
