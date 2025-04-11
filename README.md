@@ -43,3 +43,11 @@ For Fun Only: Do not use this if you genuinely want to learn DSA.
 
 **Final Reminder**
 🚀 Enjoy responsibly! This is a experimental project—run it for fun, not for cheating.
+
+
+
+
+**_______POTD solver_______**
+solve daily questions of the day in GFG 
+just need the usernames and passwords 
+follow the files for guidance
