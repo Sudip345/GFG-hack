@@ -381,15 +381,15 @@ if __name__ == "__main__":
         make_beep()
         exit(1)
 
-    api_list = [] #**********Enter Your API Keys here****************
+    api_list = ["eedededddewdwdw"] #**********Enter Your API Keys here****************
     cir_queue = deque(api_list,maxlen=len(api_list))
 
     driver = webdriver.Chrome()
     driver.maximize_window()
     driver.get(url)
 
-    uname = ""  # ***************user name and password ***************
-    password  = "" # *************your password**************
+    uname = "sudipbag265@gmail.com"  # ***************user name and password ***************
+    password  = "Sudip@123" # *************your password**************
 
     log_in_first(driver,uname,password) 
 
