@@ -413,7 +413,7 @@ def accept_cookies(driver):
 
 
 if __name__ == "__main__":
-
+    time.sleep(15)
     url = "https://www.geeksforgeeks.org/problem-of-the-day"
     if not is_online(url):
         print("you are offline , exiting....")
